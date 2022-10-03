@@ -12,8 +12,9 @@ var highestScore = 15
 var groups = []
 var board = [ [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]] 
 var score = 10
-
-function generateVariables(id) {
+var backgroundColor = "#DBB7B7"
+var ellipseColor = "#ffff"
+function generateVariables() {
     let ellipseColor;
     if (score > highestScore) {
         ellipseColor = "#ffdc34"
@@ -27,7 +28,7 @@ function generateVariables(id) {
 
 function createGroups() {
     for (let i = 0; i < board.length; i++) {
-        let currentRow = board[i];
+        let currentRow = board[i]; // board[id][i] == uint8[3]
         
         if (currentRow[0] == 1 && currentRow[1] == 1 && currentRow[2] == 1) {
             groups[i] = block1 + block2 + block3
@@ -65,6 +66,6 @@ function play() {
 }
 
 
-generateVariables(2);
+generateVariables();
 createGroups();
 getSvg();

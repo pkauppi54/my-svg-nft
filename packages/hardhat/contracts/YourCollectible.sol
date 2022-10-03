@@ -11,6 +11,7 @@ import './base64.sol';
 
 import "./HexStrings.sol";
 import "./ToColor.sol";
+import "./ConcatStrings.sol";
 // GET LISTED ON OPENSEA: https://testnets.opensea.io/get-listed/step-two
 
 // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
@@ -21,15 +22,16 @@ contract YourCollectible is ERC721, Ownable {
   using HexStrings for uint160;
   using ToColor for bytes3;
   using Counters for Counters.Counter;
+  using ConcatStrings for string;
 
   Counters.Counter private _tokenIds;
 
-  event Play(address player, uint256 tokenId, uint256 score);
+  event Play(address player, uint256 tokenId, uint8[3][18] board, uint256 score);
   event SvgGenerated(string svgCode);
 
   uint256 highestScore = 0;
 
-  constructor() public ERC721("Jenga", "JENGA") {
+  constructor() public ERC721("Jengaaa", "JENGaaA") {
       // Add something
   }
 
@@ -46,28 +48,38 @@ contract YourCollectible is ERC721, Ownable {
   
 
 
-  function mintItem() public returns (uint256) {
+  function mintItem() public payable returns (uint256) {
     require (block.timestamp < mintDeadline, "Minting has ended" );
     _tokenIds.increment();
 
     uint256 id = _tokenIds.current();
-    _mint(msg.sender, id);
+    _safeMint(msg.sender, id);
     boards[id] = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
-
+    
     
     // generating randoms
     bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
 
     color[id] = bytes2(predictableRandom[0]) | ( bytes2(predictableRandom[1]) >> 8 ) | ( bytes3(predictableRandom[2]) >> 16 );
+    ellipseColor[id] = "#ffff";
+    score[id] = 0;
+
+    generateGroups(id);
 
     return id;
 
   }
 
+
+
+
   function play(uint256 id) public returns (uint8[3][18] memory) {
     require(ownerOf(id) == msg.sender);
     
-    
+    boards[id][0][0] = 0;
+    generateGroups(id);
+
+    emit Play(msg.sender, id, boards[id], score[id]);
 
     return boards[id];
   }
@@ -129,17 +141,52 @@ contract YourCollectible is ERC721, Ownable {
   }
 
 
-  function generateGroups(uint256 id) public returns (string[] memory) {
-    groups[id][0] = "helloo";
+  // Generating the groups for svg rendering. 
+  // "groups" are the rows in the jenga tower that consist of small blocks. Every time we want to modify the tower we need to call this function.
+  // Rendering the single blocks for this game was the hardest part and I'm sure there are many better ways to do this as well.
+  // Main thing to spot here is that the "boards" mapping has integers and the "groups" mapping has strings which follow the board numbers.
+  function generateGroups(uint256 id) internal view returns (string[] memory) {
+
+    string memory block1 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(279.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
+    string memory block2 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(291.384074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
+    string memory block3 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(302.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
+    //string memory longRect = '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
+
+
+    for (uint256 i = 0; i < 18; i++) {
+      uint8[3][18] memory board = boards[id];
+      uint8[3] memory currentRow = board[i];
+      string[] memory group = groups[id];
+
+      if (currentRow[0] == 1 && currentRow[1] == 1 && currentRow[2] == 1) {
+        group[i] = block1.concat(block2).concat(block3);
+      } 
+      else if (currentRow[0] == 1 && currentRow[1] == 1 && currentRow[2] == 0) {
+        group[i] = block1.concat(block2);
+      }
+      else if ( currentRow[0] == 1 && currentRow[1] == 0 && currentRow[2] == 1) {
+        group[i] = block1.concat(block3);
+      }
+      else if ( currentRow[0] == 0 && currentRow[1] == 1 && currentRow[2] == 1) {
+        group[i] = block2.concat(block3);
+      } 
+      else if ( currentRow[0] == 1 && currentRow[1] == 0 && currentRow[2] == 0) {
+        group[i] = block1;
+      } 
+      else if ( currentRow[0] == 0 && currentRow[1] == 1 && currentRow[2] == 0) {
+        group[i] = block2;
+      }
+      else if ( currentRow[0] == 0 && currentRow[1] == 0 && currentRow[2] == 1) {
+        group[i] = block3;
+      }
+
+    }
+
     return groups[id];
   }
   
 
   function renderTokenById(uint256 id) internal view returns (string memory) {
-    string memory block1 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(279.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
-    string memory block2 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(291.384074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
-    string memory block3 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(302.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
-    string memory longRect = '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
     
     string[] memory group = groups[id];
     

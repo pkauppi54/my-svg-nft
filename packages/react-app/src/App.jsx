@@ -27,6 +27,8 @@ import deployedContracts from "./contracts/hardhat_contracts.json";
 import { Transactor } from "./helpers";
 // import Hints from "./Hints";
 import { ExampleUI, Hints, Subgraph } from "./views";
+import { useEventListener } from "eth-hooks/events/useEventListener";
+
 
 const { ethers } = require("ethers");
 /*
@@ -437,6 +439,20 @@ function App(props) {
       </div>
     );
   }
+
+
+
+  //////////////////////
+
+  const playEvents = useEventListener(readContracts, "YourCollectible", "Play", localProvider, 1);
+  if (DEBUG) console.log("playEvents: ", playEvents);
+
+
+
+
+
+
+  /////////////////////
 
   return (
     <div className="App">
