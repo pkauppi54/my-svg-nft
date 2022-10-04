@@ -3,7 +3,7 @@ pragma solidity >=0.8.0 <0.9.0;
 
 import "hardhat/console.sol";
 import "@openzeppelin/contracts/access/Ownable.sol"; 
-import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
@@ -16,7 +16,7 @@ import "./ConcatStrings.sol";
 
 // https://github.com/OpenZeppelin/openzeppelin-contracts/blob/master/contracts/access/Ownable.sol
 
-contract YourCollectible is ERC721, Ownable {
+contract Jenga is ERC721Enumerable, Ownable {
 
   using Strings for uint256;
   using HexStrings for uint160;
@@ -39,7 +39,7 @@ contract YourCollectible is ERC721, Ownable {
   mapping (uint256 => uint8[3][18]) public boards; // tokenId -> jenga board
   mapping (uint256 => bytes3) public color;
   mapping (uint256 => string) public ellipseColor;
-  mapping (uint256 => string[]) internal groups;
+  mapping (uint256 => string[18]) internal groups;
 
   // tokenID => Struct for the groups?
 
@@ -56,15 +56,15 @@ contract YourCollectible is ERC721, Ownable {
     _safeMint(msg.sender, id);
     boards[id] = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
     
-    
+    generateGroups(id);
+
     // generating randoms
     bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
 
     color[id] = bytes2(predictableRandom[0]) | ( bytes2(predictableRandom[1]) >> 8 ) | ( bytes3(predictableRandom[2]) >> 16 );
-    ellipseColor[id] = "#ffff";
+    ellipseColor[id] = '"#ffff"';
     score[id] = 0;
 
-    generateGroups(id);
 
     return id;
 
@@ -85,8 +85,11 @@ contract YourCollectible is ERC721, Ownable {
   }
 
 
+  // image = Base64.encode(bytes(string(abi.encodePacked('<svg....'>, string(abi.encodepacked(render))))))
+
   function tokenURI(uint256 id) public view override returns (string memory) {
     //require(_exists(id), "This token id doesn't exist");
+    
     string memory name = string(abi.encodePacked("Board #", id.toString()));
     string memory image = Base64.encode(bytes(generateSVGofTokenById(id)));
 
@@ -132,9 +135,9 @@ contract YourCollectible is ERC721, Ownable {
   function generateSVGofTokenById(uint256 id) internal view returns (string memory) {
     
     string memory svg = string(abi.encodePacked(
-      '<svg id="erbvmNVDPOR1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 600" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="background-color:', color[id], '">',
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 600" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="background-color:', color[id].toColor(), '">',
       renderTokenById(id),
-      '<svg>'
+      '</svg>'
     ));
     
     return svg;
@@ -145,18 +148,21 @@ contract YourCollectible is ERC721, Ownable {
   // "groups" are the rows in the jenga tower that consist of small blocks. Every time we want to modify the tower we need to call this function.
   // Rendering the single blocks for this game was the hardest part and I'm sure there are many better ways to do this as well.
   // Main thing to spot here is that the "boards" mapping has integers and the "groups" mapping has strings which follow the board numbers.
-  function generateGroups(uint256 id) internal view returns (string[] memory) {
+  string block1 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(279.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
+  string block2 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(291.384074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
+  string block3 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(302.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
+  function generateGroups(uint256 id) internal returns (string[18] memory) {
 
-    string memory block1 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(279.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
-    string memory block2 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(291.384074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
-    string memory block3 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(302.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
     //string memory longRect = '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
 
+// var boards = [ [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]] 
+    
+    string[18] memory group;
 
     for (uint256 i = 0; i < 18; i++) {
-      uint8[3][18] memory board = boards[id];
-      uint8[3] memory currentRow = board[i];
-      string[] memory group = groups[id];
+      //uint8[3][18] memory board = boards[id];
+      uint8[3] memory currentRow = boards[id][i];
+      
 
       if (currentRow[0] == 1 && currentRow[1] == 1 && currentRow[2] == 1) {
         group[i] = block1.concat(block2).concat(block3);
@@ -181,14 +187,16 @@ contract YourCollectible is ERC721, Ownable {
       }
 
     }
+    groups[id] = group;
 
     return groups[id];
   }
   
 
-  function renderTokenById(uint256 id) internal view returns (string memory) {
+
+  function renderTokenById(uint256 id) public view returns (string memory) {
     
-    string[] memory group = groups[id];
+    string[18] memory group = groups[id];
     
     string memory render = string(abi.encodePacked(
       '<g transform="matrix(4.162486 0 0 4.242252-1060.704517-776.369059)"><g transform="translate(-1.321996 0.528799)">',
@@ -199,28 +207,33 @@ contract YourCollectible is ERC721, Ownable {
       tower22(group),
       ellipseColor[id], ' stroke-width="0"/><text dx="0" dy="0" font-size="50" font-weight="400" transform="translate(274.948282 76.963439)" stroke-width="0">',
 
-      score[id], '</text>'
+      uint2str(score[id]), '</text>'
     ));
 
     return render;
   }
 
-  function tower11(string[] memory group) internal pure returns (string memory) {
+  function tower11(string[18] memory group) internal pure returns (string memory) {
     return string(abi.encodePacked(group[0], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[2], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[4], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="translate(0 34.290344)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">', group[6]));
   }
-  function tower12(string[] memory group) internal pure returns (string memory) {
+  function tower12(string[18] memory group) internal pure returns (string memory) {
     return string(abi.encodePacked('<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">', group[8], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">', group[10], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/> </g></g><g transform="translate(0 68.566717)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">', group[12], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/> </g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">', group[14], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/> </g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">', group[16], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/> </g></g></g><g transform="matrix(-1 0 0-1 655.116165 512.630228)">'));
   }
-  function tower21(string[] memory group) internal pure returns (string memory) {
+  function tower21(string[18] memory group) internal pure returns (string memory) {
     return string(abi.encodePacked('<g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[1], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">', group[3], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">', group[5], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="translate(0 34.290344)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[7], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[9]));
   }
-  function tower22(string[] memory group) internal pure returns (string memory) {
-    return string(abi.encodePacked('<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[11], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g></g><g transform="translate(0 68.566717)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[13], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[15], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[17], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g></g></g></g><ellipse rx="78.191788" ry="37.8993" transform="translate(300 57.588093)" fill=' ));
+  function tower22(string[18] memory group) internal pure returns (string memory) {
+    return string(abi.encodePacked('<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[11], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g></g><g transform="translate(0 68.566717)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[13], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[15], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[17], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g></g></g></g><ellipse rx="78.191788" ry="37.8993" transform="translate(300 57.588093)" fill='));
   }
 
+  /// TEST FUNCTIONS: 
 
   function getBoard(uint256 id) public view returns (uint8[3][18] memory) {
       return boards[id];
+  }
+
+  function getGroup(uint256 id) public view returns (string[18] memory) {
+    return groups[id];
   }
 
   function uint2str(uint _i) internal pure returns (string memory _uintAsString) {

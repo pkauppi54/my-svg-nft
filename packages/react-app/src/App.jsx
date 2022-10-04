@@ -26,7 +26,7 @@ import externalContracts from "./contracts/external_contracts";
 import deployedContracts from "./contracts/hardhat_contracts.json";
 import { Transactor } from "./helpers";
 // import Hints from "./Hints";
-import { ExampleUI, Hints, Subgraph } from "./views";
+import { ExampleUI, Hints, Subgraph, Jengas } from "./views";
 import { useEventListener } from "eth-hooks/events/useEventListener";
 
 
@@ -443,9 +443,14 @@ function App(props) {
 
 
   //////////////////////
+  const jengaContract = "Jenga"
 
-  const playEvents = useEventListener(readContracts, "YourCollectible", "Play", localProvider, 1);
+
+  const playEvents = useEventListener(readContracts, "Jenga", "Play", localProvider, 1);
   if (DEBUG) console.log("playEvents: ", playEvents);
+
+  const balance = useContractReader(readContracts, jengaContract, "balanceOf", [address]);
+  const balanceNumber = balance && balance.toNumber() && balance.toNumber;
 
 
 
@@ -468,17 +473,17 @@ function App(props) {
               }}
               to="/"
             >
-              YourContract
+              Jengas Contract
             </Link>
           </Menu.Item>
-          <Menu.Item key="/hints">
+          <Menu.Item key="/jengas">
             <Link
               onClick={() => {
-                setRoute("/hints");
+                setRoute("/jengas");
               }}
-              to="/hints"
+              to="/jengas"
             >
-              Hints
+              Jengas
             </Link>
           </Menu.Item>
           <Menu.Item key="/exampleui">
@@ -522,7 +527,7 @@ function App(props) {
             */}
 
             <Contract
-              name="YourCollectible"
+              name="Jenga"
               price={price}
               signer={userSigner}
               provider={localProvider}
@@ -531,13 +536,21 @@ function App(props) {
               contractConfig={contractConfig}
             />
           </Route>
-          <Route path="/hints">
-            <Hints
-              address={address}
-              yourLocalBalance={yourLocalBalance}
+          <Route path="/jengas">
+            <Jengas
+              readContracts={readContracts}
               mainnetProvider={mainnetProvider}
-              price={price}
-            />
+              blockExplorer={blockExplorer}
+              totalSupply={10}
+              DEBUG={DEBUG}
+              writeContracts={writeContracts}
+              tx={tx}
+              address={address}
+              localPovider={localProvider}
+              jengaContract={jengaContract}
+              balance={0}
+              startBlock={null} 
+              />
           </Route>
           <Route path="/exampleui">
             <ExampleUI
