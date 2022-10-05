@@ -29,7 +29,7 @@ function Jengas({
     const perPage = 12;
     const [page, setPage] = useState(0);
 
-    const fetchMetadataAndUpdate = async id => {
+    const fetchMetadataAndUpdate = async (id) => {
         try {
             const tokenURI = await readContracts[jengaContract].tokenURI(id);
             const jsonManifestString = atob(tokenURI.substring(29));
@@ -57,7 +57,7 @@ function Jengas({
     }
 
 
-    const updateAllJengas = async fetchAll => {
+    const updateAllJengas = async (fetchAll) => {
         if (readContracts[jengaContract] && totalSupply) {
             setLoadingJengas(true);
             let numberSupply = totalSupply;
@@ -88,7 +88,7 @@ function Jengas({
             }
         }
     }
-    console.log("ALL JENGAS: ", allJengas[0])
+    //console.log("ALL JENGAS: ", allJengas)
 
     useEffect(() => {
         if (totalSupply ) updateAllJengas(false);
@@ -102,7 +102,7 @@ function Jengas({
             return jenga.owner == address.toLowerCase();
         });
     }
-    //console.log("filtered jengas: ", filteredJengas[0].image)
+    //console.log("filtered jengas: ", filteredJengas[0])
 
     return (
         <div style={{ width: "auto", margin: "auto", paddingBottom: 25, minHeight: 800 }}>
@@ -179,8 +179,42 @@ function Jengas({
                                         }?a=${id}`}
                                         target="_blank"
                                     >
-                                        <img src={item.image && item.image} alt={"Jenga #" + id} width="100" />
+                                        <img src={item.image && item.image} alt={"Jenga #" + id} width="150" />
                                     </a>
+                                    {item.owner && 
+                                        <div>
+                                            <Address
+                                                address={item.owner}
+                                                ensProvider={mainnetProvider}
+                                                blockExplorer={blockExplorer}
+                                                fontSize={16}
+                                            />
+                                        </div>
+                                    }
+                                    {address && item.owner == address.toLowerCase() && (
+                                        <>
+                                            {item.attributes[2].value == "standing" ? (
+                                                <>
+                                                    <Button
+                                                        type="primary"
+                                                        onClick={async () => {
+                                                            try {
+                                                                const txCurrent = await tx(writeContracts[jengaContract].play(id));
+                                                                await txCurrent.wait();
+                                                                updateOneJenga(id);
+                                                            } catch (e) {
+                                                                console.log("Play error: ", e);
+                                                            }
+                                                        }}
+                                                    >
+                                                        Play
+                                                    </Button>
+                                                </>
+                                            ) : (
+                                                <h2> Game over! Start again by building up your tower.</h2>
+                                            )}
+                                        </>
+                                    )}
                                 </Card>
 
                             </List.Item>

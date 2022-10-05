@@ -29,23 +29,33 @@ contract Jenga is ERC721Enumerable, Ownable {
   event Play(address player, uint256 tokenId, uint8[3][18] board, uint256 score);
   event SvgGenerated(string svgCode);
 
-  uint256 highestScore = 0;
-
   constructor() public ERC721("Jengaaa", "JENGaaA") {
       // Add something
   }
 
-  mapping (uint256 => uint256) public score;
-  mapping (uint256 => uint8[3][18]) public boards; // tokenId -> jenga board
-  mapping (uint256 => bytes3) public color;
-  mapping (uint256 => string) public ellipseColor;
-  mapping (uint256 => string[18]) internal groups;
+  // all these mappings are from tokenId -> <value>
+  mapping (uint256 => uint256) public score;          // score of the tokenId
+  
+  mapping (uint256 => uint8[3][18]) public boards;    // board: array with 18 3-length arrays
+  
+  mapping (uint256 => bytes3) public color;           // background color of the NFT
+  
+  mapping (uint256 => string) public ellipseColor;    // ellipse color of the NFT, might remove this and default to white
+  
+  mapping (uint256 => string[18]) internal groups;    // length 18 array with the svg code of the blocks, regenerated everytime a block is removed 
+  
+  mapping (uint256 => bool) public fallen;            // has the jenga fallen
 
-  // tokenID => Struct for the groups?
+  mapping (uint256 => uint256) public blocksRemoved;  // blocks removed used for the score calculation
+
 
 
   uint256 mintDeadline = block.timestamp + 24 hours;
-  
+
+  uint256 highestScore = 0; 
+
+  bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
+
 
 
   function mintItem() public payable returns (uint256) {
@@ -54,12 +64,11 @@ contract Jenga is ERC721Enumerable, Ownable {
 
     uint256 id = _tokenIds.current();
     _safeMint(msg.sender, id);
-    boards[id] = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
-    
+
+    generateBoard(id);    
     generateGroups(id);
 
     // generating randoms
-    bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
 
     color[id] = bytes2(predictableRandom[0]) | ( bytes2(predictableRandom[1]) >> 8 ) | ( bytes3(predictableRandom[2]) >> 16 );
     ellipseColor[id] = '"#ffff"';
@@ -71,13 +80,66 @@ contract Jenga is ERC721Enumerable, Ownable {
   }
 
 
+  function generateBoard(uint256 id) internal returns (uint8[3][18] memory) {
+    boards[id] = [[1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]];
+    return boards[id];
+  }
+
+
+  function generateGroups(uint256 id) internal returns (string[18] memory) {
+    
+    string[18] memory group;
+
+    for (uint256 i = 0; i < 18; i++) {
+      //uint8[3][18] memory board = boards[id];
+      uint8[3] memory currentRow = boards[id][i];
+      
+
+      if (currentRow[0] == 1 && currentRow[1] == 1 && currentRow[2] == 1) {
+        group[i] = block1.concat(block2).concat(block3);
+      } 
+      else if (currentRow[0] == 1 && currentRow[1] == 1 && currentRow[2] == 0) {
+        group[i] = block1.concat(block2);
+      }
+      else if ( currentRow[0] == 1 && currentRow[1] == 0 && currentRow[2] == 1) {
+        group[i] = block1.concat(block3);
+      }
+      else if ( currentRow[0] == 0 && currentRow[1] == 1 && currentRow[2] == 1) {
+        group[i] = block2.concat(block3);
+      } 
+      else if ( currentRow[0] == 1 && currentRow[1] == 0 && currentRow[2] == 0) {
+        group[i] = block1;
+      } 
+      else if ( currentRow[0] == 0 && currentRow[1] == 1 && currentRow[2] == 0) {
+        group[i] = block2;
+      }
+      else if ( currentRow[0] == 0 && currentRow[1] == 0 && currentRow[2] == 1) {
+        group[i] = block3;
+      }
+
+    }
+    groups[id] = group;
+
+    return groups[id];
+  }
+
 
 
   function play(uint256 id) public returns (uint8[3][18] memory) {
     require(ownerOf(id) == msg.sender);
     
     boards[id][0][0] = 0;
+
+    // floor / blocks_left or floor * blocks_removed
+    // we can count the floor from the random block removed since block == boards[id][X][block], where X is the floor
+    score[id] += 4;
+    if (score[id] > highestScore) {
+      color[id] = 0xFFD700;
+    }
+
     generateGroups(id);
+
+    blocksRemoved[id] += 1;
 
     emit Play(msg.sender, id, boards[id], score[id]);
 
@@ -126,7 +188,10 @@ contract Jenga is ERC721Enumerable, Ownable {
       '[{"trait_type": "score", "value": ',
       uint2str(score[id]),
       '}, {"trait_type": "color", "value": "#',
-      color[id].toColor(),'"}],'
+      color[id].toColor(),'"',
+      '}, {"trait_type": "fallen", "value": "',
+      fallen[id] ? "fallen" : "standing",
+      '"}],'
     ));
   }
 
@@ -151,46 +216,7 @@ contract Jenga is ERC721Enumerable, Ownable {
   string block1 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(279.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
   string block2 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(291.384074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
   string block3 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(302.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
-  function generateGroups(uint256 id) internal returns (string[18] memory) {
-
-    //string memory longRect = '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
-
-// var boards = [ [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1], [1, 1, 1]] 
-    
-    string[18] memory group;
-
-    for (uint256 i = 0; i < 18; i++) {
-      //uint8[3][18] memory board = boards[id];
-      uint8[3] memory currentRow = boards[id][i];
-      
-
-      if (currentRow[0] == 1 && currentRow[1] == 1 && currentRow[2] == 1) {
-        group[i] = block1.concat(block2).concat(block3);
-      } 
-      else if (currentRow[0] == 1 && currentRow[1] == 1 && currentRow[2] == 0) {
-        group[i] = block1.concat(block2);
-      }
-      else if ( currentRow[0] == 1 && currentRow[1] == 0 && currentRow[2] == 1) {
-        group[i] = block1.concat(block3);
-      }
-      else if ( currentRow[0] == 0 && currentRow[1] == 1 && currentRow[2] == 1) {
-        group[i] = block2.concat(block3);
-      } 
-      else if ( currentRow[0] == 1 && currentRow[1] == 0 && currentRow[2] == 0) {
-        group[i] = block1;
-      } 
-      else if ( currentRow[0] == 0 && currentRow[1] == 1 && currentRow[2] == 0) {
-        group[i] = block2;
-      }
-      else if ( currentRow[0] == 0 && currentRow[1] == 0 && currentRow[2] == 1) {
-        group[i] = block3;
-      }
-
-    }
-    groups[id] = group;
-
-    return groups[id];
-  }
+  
   
 
 
@@ -234,6 +260,10 @@ contract Jenga is ERC721Enumerable, Ownable {
 
   function getGroup(uint256 id) public view returns (string[18] memory) {
     return groups[id];
+  }
+
+  function getPredictableRandom() public view returns (bytes2) {
+    return bytes2(predictableRandom[2]);
   }
 
   function uint2str(uint _i) internal pure returns (string memory _uintAsString) {

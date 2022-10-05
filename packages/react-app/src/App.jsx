@@ -449,6 +449,11 @@ function App(props) {
   const playEvents = useEventListener(readContracts, "Jenga", "Play", localProvider, 1);
   if (DEBUG) console.log("playEvents: ", playEvents);
 
+  const filteredPlayEvents = playEvents.filter((event) => {
+    return event.args.player == address;
+  })
+  console.log("filteredPlayEvents: ", filteredPlayEvents);
+
   const balance = useContractReader(readContracts, jengaContract, "balanceOf", [address]);
   const balanceNumber = balance && balance.toNumber() && balance.toNumber;
 
