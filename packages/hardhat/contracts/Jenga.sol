@@ -54,8 +54,10 @@ contract Jenga is ERC721Enumerable, Ownable {
 
   uint256 highestScore = 0; 
 
-  bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
+  uint256 nonceForRandom = 0; // nonce for the hash when generating "random" numbers
 
+  // test variables
+  uint256 public randy; 
 
 
   function mintItem() public payable returns (uint256) {
@@ -70,6 +72,7 @@ contract Jenga is ERC721Enumerable, Ownable {
 
     // generating randoms
 
+    bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
     color[id] = bytes2(predictableRandom[0]) | ( bytes2(predictableRandom[1]) >> 8 ) | ( bytes3(predictableRandom[2]) >> 16 );
     ellipseColor[id] = '"#ffff"';
     score[id] = 0;
@@ -78,6 +81,20 @@ contract Jenga is ERC721Enumerable, Ownable {
     return id;
 
   }
+
+
+
+  function getRandomNum(address sender, uint256 _modulus) internal returns (uint256) {
+    nonceForRandom++;
+    // This should return an integer between 0-99 if the modulus is 100 which takes the last two digits
+    return uint256(keccak256(abi.encodePacked(
+        blockhash(block.number-1),
+        sender,
+        address(this),
+        nonceForRandom
+      ))) % _modulus;
+  }
+
 
 
   function generateBoard(uint256 id) internal returns (uint8[3][18] memory) {
@@ -128,7 +145,7 @@ contract Jenga is ERC721Enumerable, Ownable {
   function play(uint256 id) public returns (uint8[3][18] memory) {
     require(ownerOf(id) == msg.sender);
     
-    boards[id][0][0] = 0;
+    uint256 randomNum = getRandomNum({ sender: msg.sender, _modulus: 100 });
 
     // floor / blocks_left or floor * blocks_removed
     // we can count the floor from the random block removed since block == boards[id][X][block], where X is the floor
@@ -252,6 +269,8 @@ contract Jenga is ERC721Enumerable, Ownable {
     return string(abi.encodePacked('<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[11], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g></g><g transform="translate(0 68.566717)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[13], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[15], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[17], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g></g></g></g><ellipse rx="78.191788" ry="37.8993" transform="translate(300 57.588093)" fill='));
   }
 
+
+
   /// TEST FUNCTIONS: 
 
   function getBoard(uint256 id) public view returns (uint8[3][18] memory) {
@@ -262,9 +281,21 @@ contract Jenga is ERC721Enumerable, Ownable {
     return groups[id];
   }
 
-  function getPredictableRandom() public view returns (bytes2) {
-    return bytes2(predictableRandom[2]);
+  function getPredictableRandom() public view returns (bytes32) {
+    bytes32 predictableRandomm = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
+
+    return bytes32(predictableRandomm);
   }
+  function getColor(uint256 id) public view returns (bytes3) {
+    return color[id];
+  }
+
+  function randomNum(uint256 _modulus) public returns (uint256) {
+    randy = getRandomNum(msg.sender, _modulus);
+    return randy; // need to calculate a modulus that gives us umbers from 0-17 and then 0-2
+  }
+
+//
 
   function uint2str(uint _i) internal pure returns (string memory _uintAsString) {
       if (_i == 0) {
