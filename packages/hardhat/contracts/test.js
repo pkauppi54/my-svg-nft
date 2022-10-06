@@ -1,3 +1,4 @@
+
 var block1 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(279.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>'
 var block2 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(291.384074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>'
 var block3 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(302.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>'
@@ -40,6 +41,18 @@ function createGroups() {
 
     }
 }
-createGroups();
 
-console.log(groups[0])
+
+function testModulus() {
+    
+}
+
+function generateLightColorHex() {
+    let color = "#";
+    for (let i = 0; i < 3; i++) {
+      color += ("0" + Math.floor(((1 + Math.random()) * Math.pow(16, 2)) / 2).toString(16)).slice(-2);
+    }
+    console.log(color);
+  }
+
+  generateLightColorHex();

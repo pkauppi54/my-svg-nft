@@ -52,9 +52,10 @@ contract Jenga is ERC721Enumerable, Ownable {
 
   uint256 mintDeadline = block.timestamp + 24 hours;
 
-  uint256 highestScore = 0; 
+  uint256 highestScore;
+  uint256 leader;  // leading tokenID
 
-  uint256 nonceForRandom = 0; // nonce for the hash when generating "random" numbers
+  uint256 public nonceForRandom = 0; // nonce for the hash when generating "random" numbers
 
   // test variables
   uint256 public randy; 
@@ -74,7 +75,7 @@ contract Jenga is ERC721Enumerable, Ownable {
 
     bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
     color[id] = bytes2(predictableRandom[0]) | ( bytes2(predictableRandom[1]) >> 8 ) | ( bytes3(predictableRandom[2]) >> 16 );
-    ellipseColor[id] = '"#ffff"';
+    ellipseColor[id] = '"#ffffff"';
     score[id] = 0;
 
 
@@ -82,7 +83,7 @@ contract Jenga is ERC721Enumerable, Ownable {
 
   }
 
-
+  // GENERATION FUNCTIONS:
 
   function getRandomNum(address sender, uint256 _modulus) internal returns (uint256) {
     nonceForRandom++;
@@ -95,6 +96,14 @@ contract Jenga is ERC721Enumerable, Ownable {
       ))) % _modulus;
   }
 
+  // function generateLightColors() internal {
+  //   string color = "#";
+  //   for (uint8 i=0; i<3; i++) {
+  //     color += ("0"+bytes3((1+getRandomNum()) * 16**2/2))
+  //   }
+
+  //   return color;
+  // }
 
 
   function generateBoard(uint256 id) internal returns (uint8[3][18] memory) {
@@ -140,18 +149,30 @@ contract Jenga is ERC721Enumerable, Ownable {
     return groups[id];
   }
 
+///////////
 
 
   function play(uint256 id) public returns (uint8[3][18] memory) {
-    require(ownerOf(id) == msg.sender);
+    require(ownerOf(id) == msg.sender, "Not the owner");
+    require(fallen[id] == false, "This tower has fallen");
     
-    uint256 randomNum = getRandomNum({ sender: msg.sender, _modulus: 100 });
+    uint256 randomRow = getRandomNum({ sender: msg.sender, _modulus: 18 });
+    uint256 randomBlock = getRandomNum({ sender: msg.sender, _modulus: 3 });
+    // if the row is not empty: remove block and add to score
+    // else if there is only two blocks: Emit a fumbling event?
+    // else the row turns empty: tower falls
+
+    boards[id][randomRow][randomBlock] = 0; // block is taken off
 
     // floor / blocks_left or floor * blocks_removed
-    // we can count the floor from the random block removed since block == boards[id][X][block], where X is the floor
+    // we can count the floor from the random block removed since block == boards[id][X][block], where X is the floor, 
+    // also score is higher if only one block remains in a row
+
     score[id] += 4;
+
     if (score[id] > highestScore) {
-      color[id] = 0xFFD700;
+      leader = id;
+      highestScore = score[id];
     }
 
     generateGroups(id);
@@ -217,7 +238,7 @@ contract Jenga is ERC721Enumerable, Ownable {
   function generateSVGofTokenById(uint256 id) internal view returns (string memory) {
     
     string memory svg = string(abi.encodePacked(
-      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 600" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="background-color:', color[id].toColor(), '">',
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 600" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="background-color:', id == leader ? "#FFD700" : color[id].toColor(), '">',
       renderTokenById(id),
       '</svg>'
     ));
@@ -230,9 +251,9 @@ contract Jenga is ERC721Enumerable, Ownable {
   // "groups" are the rows in the jenga tower that consist of small blocks. Every time we want to modify the tower we need to call this function.
   // Rendering the single blocks for this game was the hardest part and I'm sure there are many better ways to do this as well.
   // Main thing to spot here is that the "boards" mapping has integers and the "groups" mapping has strings which follow the board numbers.
-  string block1 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(279.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
-  string block2 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(291.384074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
-  string block3 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(302.884074 202.028018)" paint-order="fill markers stroke" fill="none" stroke="#000" stroke-linejoin="bevel"/>';
+  string block1 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(279.884074 202.028018)" paint-order="fill markers stroke" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>';
+  string block2 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(291.384074 202.028018)" paint-order="fill markers stroke" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>';
+  string block3 = '<rect width="10" height="8.268303" rx="0" ry="0" transform="translate(302.884074 202.028018)" paint-order="fill markers stroke" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>';
   
   
 
@@ -257,16 +278,16 @@ contract Jenga is ERC721Enumerable, Ownable {
   }
 
   function tower11(string[18] memory group) internal pure returns (string memory) {
-    return string(abi.encodePacked(group[0], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[2], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[4], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="translate(0 34.290344)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">', group[6]));
+    return string(abi.encodePacked(group[0], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[2], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[4], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/></g><g transform="translate(0 34.290344)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">', group[6]));
   }
   function tower12(string[18] memory group) internal pure returns (string memory) {
-    return string(abi.encodePacked('<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">', group[8], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">', group[10], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/> </g></g><g transform="translate(0 68.566717)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">', group[12], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/> </g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">', group[14], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/> </g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">', group[16], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/> </g></g></g><g transform="matrix(-1 0 0-1 655.116165 512.630228)">'));
+    return string(abi.encodePacked('<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">', group[8], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/></g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">', group[10], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/> </g></g><g transform="translate(0 68.566717)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">', group[12], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/> </g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">', group[14], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/> </g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">', group[16], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/> </g></g></g><g transform="matrix(-1 0 0-1 655.116165 512.630228)">'));
   }
   function tower21(string[18] memory group) internal pure returns (string memory) {
-    return string(abi.encodePacked('<g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[1], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">', group[3], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">', group[5], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="translate(0 34.290344)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[7], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[9]));
+    return string(abi.encodePacked('<g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[1], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">', group[3], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">', group[5], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="translate(0 34.290344)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[7], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[9]));
   }
   function tower22(string[18] memory group) internal pure returns (string memory) {
-    return string(abi.encodePacked('<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[11], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g></g><g transform="translate(0 68.566717)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[13], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[15], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[17], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="none" stroke="#000" stroke-linejoin="bevel"/>', '</g></g></g></g><ellipse rx="78.191788" ry="37.8993" transform="translate(300 57.588093)" fill='));
+    return string(abi.encodePacked('<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[11], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>', '</g></g><g transform="translate(0 68.566717)"><g transform="matrix(1 0 0 0.604719 0.22 82.8471)">',group[13], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 94.254655)">',group[15], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>', '</g><g transform="matrix(1 0 0 0.604719 0.22 105.66221)">',group[17], '<rect width="33" height="8.268303" rx="0" ry="0" transform="translate(279.884074 211.476621)" fill="#ffffff" stroke="#000" stroke-linejoin="bevel"/>', '</g></g></g></g><ellipse rx="78.191788" ry="37.8993" transform="translate(300 57.588093)" fill='));
   }
 
 
