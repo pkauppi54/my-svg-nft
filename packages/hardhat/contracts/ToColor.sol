@@ -12,4 +12,16 @@ library ToColor {
         }
         return string(buffer);
     }
+
+    // bytes3 == array of 3 bytes so:
+    // bytes3 == 0x000000 
+    // bytes2 = 0x0000
+
+    // Our color is assigned as follows: bytes2(predictableRandom[0]) | ( bytes2(predictableRandom[1]) >> 8 ) | ( bytes3(predictableRandom[2]) >> 16 );
+
+    // "|" is the or operator. This will return a 1 if one of the bytes has 1 and 0 if neither of them have a 1.
+    // bytes2 = [byte, byte], bytes2(predictableRandom[0]) 
+
+    // 1 hexadecimal digit = 4 bits, everything in a byte array are in the form of hexadecimal digits
+
 }

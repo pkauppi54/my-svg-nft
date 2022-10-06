@@ -60,6 +60,17 @@ contract Jenga is ERC721Enumerable, Ownable {
   // test variables
   uint256 public randy; 
 
+  bytes3 public testpre3;
+  bytes2 public testpre2;
+  bytes2 public testpre1;
+  bytes3 public colorvalue;
+  function testPredict() public returns(bytes2) {
+    bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
+    testpre1 = bytes2(predictableRandom[0]) ;
+    testpre2 = bytes2(predictableRandom[1]) >> 8 ;
+    testpre3 = bytes3(predictableRandom[2]) >> 16;
+    colorvalue = testpre1 | testpre2 | testpre3; // this is cool af! now time to figure out how to only create light colors 
+  }
 
   function mintItem() public payable returns (uint256) {
     require (block.timestamp < mintDeadline, "Minting has ended" );
@@ -74,7 +85,7 @@ contract Jenga is ERC721Enumerable, Ownable {
     // generating randoms
 
     bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
-    color[id] = bytes2(predictableRandom[0]) | ( bytes2(predictableRandom[1]) >> 8 ) | ( bytes3(predictableRandom[2]) >> 16 );
+    color[id] = bytes2(predictableRandom[0]) | ( bytes2(predictableRandom[1]) >> 8 ) | ( bytes3(predictableRandom[2]) >> 16 ); 
     ellipseColor[id] = '"#ffffff"';
     score[id] = 0;
 
@@ -96,14 +107,11 @@ contract Jenga is ERC721Enumerable, Ownable {
       ))) % _modulus;
   }
 
-  // function generateLightColors() internal {
-  //   string color = "#";
-  //   for (uint8 i=0; i<3; i++) {
-  //     color += ("0"+bytes3((1+getRandomNum()) * 16**2/2))
-  //   }
-
-  //   return color;
-  // }
+  string public randycolors;
+  function generateLightColors(address sender) public returns (string memory) {
+    randycolors = getRandomNum(sender, 129) + 128;
+    return randycolors;
+  }
 
 
   function generateBoard(uint256 id) internal returns (uint8[3][18] memory) {
@@ -238,7 +246,7 @@ contract Jenga is ERC721Enumerable, Ownable {
   function generateSVGofTokenById(uint256 id) internal view returns (string memory) {
     
     string memory svg = string(abi.encodePacked(
-      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 600" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="background-color:', id == leader ? "#FFD700" : color[id].toColor(), '">',
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 600" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="background-color:', id == leader ? "rgb(255,215,0)" : color[id].toColor(), '">',
       renderTokenById(id),
       '</svg>'
     ));
