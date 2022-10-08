@@ -7,8 +7,10 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 
+
 import './base64.sol';
 
+import "./SumArray.sol";
 import "./HexStrings.sol";
 import "./ToColor.sol";
 import "./ConcatStrings.sol";
@@ -23,6 +25,7 @@ contract Jenga is ERC721Enumerable, Ownable {
   using ToColor for bytes3;
   using Counters for Counters.Counter;
   using ConcatStrings for string;
+  using SumArray for uint8[3];
 
   Counters.Counter private _tokenIds;
 
@@ -53,24 +56,11 @@ contract Jenga is ERC721Enumerable, Ownable {
   uint256 mintDeadline = block.timestamp + 24 hours;
 
   uint256 highestScore;
-  uint256 leader;  // leading tokenID
+  uint256 leader;  // leading tokenID for golden color
 
   uint256 public nonceForRandom = 0; // nonce for the hash when generating "random" numbers
 
-  // test variables
-  uint256 public randy; 
 
-  bytes3 public testpre3;
-  bytes2 public testpre2;
-  bytes2 public testpre1;
-  bytes3 public colorvalue;
-  function testPredict() public returns(bytes2) {
-    bytes32 predictableRandom = keccak256(abi.encodePacked( blockhash(block.number-1), msg.sender, address(this) ));
-    testpre1 = bytes2(predictableRandom[0]) ;
-    testpre2 = bytes2(predictableRandom[1]) >> 8 ;
-    testpre3 = bytes3(predictableRandom[2]) >> 16;
-    colorvalue = testpre1 | testpre2 | testpre3; // this is cool af! now time to figure out how to only create light colors 
-  }
 
   function mintItem() public payable returns (uint256) {
     require (block.timestamp < mintDeadline, "Minting has ended" );
@@ -105,12 +95,6 @@ contract Jenga is ERC721Enumerable, Ownable {
         address(this),
         nonceForRandom
       ))) % _modulus;
-  }
-
-  string public randycolors;
-  function generateLightColors(address sender) public returns (string memory) {
-    randycolors = getRandomNum(sender, 129) + 128;
-    return randycolors;
   }
 
 
@@ -149,6 +133,8 @@ contract Jenga is ERC721Enumerable, Ownable {
       }
       else if ( currentRow[0] == 0 && currentRow[1] == 0 && currentRow[2] == 1) {
         group[i] = block3;
+      } else {
+        group[i] = "";
       }
 
     }
@@ -160,23 +146,45 @@ contract Jenga is ERC721Enumerable, Ownable {
 ///////////
 
 
-  function play(uint256 id) public returns (uint8[3][18] memory) {
+  function play(uint256 id, uint256 blocksToRemove) public returns (uint8[3][18] memory) {
     require(ownerOf(id) == msg.sender, "Not the owner");
     require(fallen[id] == false, "This tower has fallen");
     
-    uint256 randomRow = getRandomNum({ sender: msg.sender, _modulus: 18 });
-    uint256 randomBlock = getRandomNum({ sender: msg.sender, _modulus: 3 });
+    //require(boards[id][randomFloor][randomBlock] != 0, "Please play again, block empty :)");
     // if the row is not empty: remove block and add to score
     // else if there is only two blocks: Emit a fumbling event?
     // else the row turns empty: tower falls
 
-    boards[id][randomRow][randomBlock] = 0; // block is taken off
+     
+    // this deletes 4 blocks at once
+    for (uint256 i = 0; i < blocksToRemove; i++) {
+      uint256 randomFloor = getRandomNum({ sender: msg.sender, _modulus: 18 });
+      uint256 randomBlock = getRandomNum({ sender: msg.sender, _modulus: 3 });
 
-    // floor / blocks_left or floor * blocks_removed
-    // we can count the floor from the random block removed since block == boards[id][X][block], where X is the floor, 
-    // also score is higher if only one block remains in a row
+      if (boards[id][randomFloor][randomBlock] != 0 && 
+          boards[id][randomFloor].sumArray() >=2 && 
+          fallen[id] == false) { 
+        
+        boards[id][randomFloor][randomBlock] = 0; // block is taken off
+        uint256 blocksLeftInRow = 1;
+        blocksRemoved[id] += 1;
+        score[id] += randomFloor * blocksRemoved[id] / blocksLeftInRow;
+      } else {
+        fallen[id] = true;
+        // emit Fall(msg.sender, id, board[id], score[id]);
+      }
+    }
+    
+    // // this only deletes one
+    // if (boards[id][randomFloor][randomBlock] != 0 && boards[id][randomFloor].sumArray() >=2) { 
+    //   boards[id][randomFloor][randomBlock] = 0; // block is taken off
+    //   uint256 blocksLeftInRow = 1;
+    //   blocksRemoved[id] += 1;
+    //   score[id] += randomFloor * blocksRemoved[id] / blocksLeftInRow;
+    // } else {
+    //   fallen[id] = true;
+    // }
 
-    score[id] += 4;
 
     if (score[id] > highestScore) {
       leader = id;
@@ -185,11 +193,7 @@ contract Jenga is ERC721Enumerable, Ownable {
 
     generateGroups(id);
 
-    blocksRemoved[id] += 1;
-
     emit Play(msg.sender, id, boards[id], score[id]);
-
-    return boards[id];
   }
 
 
@@ -199,7 +203,7 @@ contract Jenga is ERC721Enumerable, Ownable {
     //require(_exists(id), "This token id doesn't exist");
     
     string memory name = string(abi.encodePacked("Board #", id.toString()));
-    string memory image = Base64.encode(bytes(generateSVGofTokenById(id)));
+    string memory image = fallen[id] ? Base64.encode(bytes(generateFallenSVG(id))) : Base64.encode(bytes(generateSVGofTokenById(id)));
 
     return 
       string(
@@ -251,6 +255,15 @@ contract Jenga is ERC721Enumerable, Ownable {
       '</svg>'
     ));
     
+    return svg;
+  }
+
+  function generateFallenSVG(uint256 id) internal view returns (string memory) {
+    string memory svg = string(abi.encodePacked(
+      '<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 600 600" shape-rendering="geometricPrecision" text-rendering="geometricPrecision" style="background-color:', color[id].toColor(), '">',
+      '<text dx="0" dy="0" font-size="50" font-weight="400" transform="translate(274.948282 76.963439)" stroke-width="0"> Tower has fallen </text>',
+      '</svg>'
+    ));
     return svg;
   }
 
@@ -319,10 +332,6 @@ contract Jenga is ERC721Enumerable, Ownable {
     return color[id];
   }
 
-  function randomNum(uint256 _modulus) public returns (uint256) {
-    randy = getRandomNum(msg.sender, _modulus);
-    return randy; // need to calculate a modulus that gives us umbers from 0-17 and then 0-2
-  }
 
 //
 

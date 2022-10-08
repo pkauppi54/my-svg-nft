@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Button, Card, List, Spin, Popover, Form, Switch } from "antd";
+import { Button, Card, List, Spin, Popover, Form, Switch, Input } from "antd";
 import { RedoOutlined } from "@ant-design/icons";
 import { Address, AddressInput } from "../components";
 import { useDebounce } from "../hooks";
 import { ethers } from "ethers";
 import { useEventListener } from "eth-hooks/events/useEventListener";
+import { PlayJengaModal } from "../components/Jenga";
 
 
 function Jengas({
@@ -25,6 +26,8 @@ function Jengas({
     const [loadingJengas, setLoadingJengas] = useState(true);
     const [allJengas, setAllJengas] = useState({});
     const [yourJengas, setYourJengas]= useState();
+
+    const [isModalVisible, setIsModalVisible] = useState(false);
 
     const perPage = 12;
     const [page, setPage] = useState(0);
@@ -106,6 +109,7 @@ function Jengas({
 
     return (
         <div style={{ width: "auto", margin: "auto", paddingBottom: 25, minHeight: 800 }}>
+            
             {false ? (
                 <Spin style={{ marginTop: 100 }} />
             ): (
@@ -157,7 +161,23 @@ function Jengas({
                         const id = item.id;
 
                         return (
+                            
                             <List.Item key={id}>
+                                {isModalVisible && (
+                                    <PlayJengaModal 
+                                        writeContracts={writeContracts}
+                                        tx={tx}
+                                        mainnetProvider={mainnetProvider}
+                                        jengaContract={jengaContract}
+                                        address={address}
+                                        readContracts={readContracts}
+                                        blockExplorer={blockExplorer}
+                                        setIsModalVisible={setIsModalVisible}
+                                        isModalVisible={isModalVisible}
+                                        updateOneJenga={updateOneJenga}
+                                        item={item}
+                                    />
+                                )}
                                 <Card 
                                     //size needs to be bigger
                                     title={
@@ -191,28 +211,29 @@ function Jengas({
                                             />
                                         </div>
                                     }
-                                    {address && item.owner == address.toLowerCase() && (
+                                    {address && item.owner == address.toLowerCase() ? (
                                         <>
                                             {item.attributes[2].value == "standing" ? (
                                                 <>
                                                     <Button
                                                         type="primary"
-                                                        onClick={async () => {
-                                                            try {
-                                                                const txCurrent = await tx(writeContracts[jengaContract].play(id));
-                                                                await txCurrent.wait();
-                                                                updateOneJenga(id);
-                                                            } catch (e) {
-                                                                console.log("Play error: ", e);
-                                                            }
-                                                        }}
+                                                        onClick={setIsModalVisible(true)}
                                                     >
                                                         Play
                                                     </Button>
                                                 </>
                                             ) : (
-                                                <h2> Game over! Start again by building up your tower.</h2>
+                                                <h2> Game over, your tower grumbled!</h2>
                                             )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Button
+                                                type="primary"
+                                                onClick={setIsModalVisible(true)}
+                                            > 
+                                                View 
+                                            </Button>
                                         </>
                                     )}
                                 </Card>

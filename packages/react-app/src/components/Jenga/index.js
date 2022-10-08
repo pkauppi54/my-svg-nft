@@ -1,0 +1,1 @@
+export { default as PlayJengaModal } from "./PlayJengaModal";
